@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tính tiền cầu</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f7f7f7; padding:20px }
+    table { border-collapse: collapse; width:100%; margin-bottom:20px; background:#fff }
+    th, td { border:1px solid #ccc; padding:6px 8px; text-align:center }
+    th { background:#e9f5e1 }
+    h2 { margin-top:30px }
+    input, select { width:10%; box-sizing:border-box }
+    .btn { padding:8px 16px; cursor:pointer }
+    .note { background:#fff3cd; padding:10px; margin-bottom:20px }
+  </style>
+</head>
+<body>
+
+<h2>1. Tổng chi</h2>
+<div style="display:flex; gap:10px; margin-bottom:10px">
+  <select id="itemType">
+    <option value="San">Sân</option>
+    <option value="Cau">Cầu</option>
+    <option value="Tea">Trà đá</option>
+    <option value="Other">Khác</option>
+  </select>
+  <button class="btn" onclick="addExpense()">+ Thêm mặt hàng</button>
+</div>
+<table id="expenseTable">
+  <tr>
+    <th>Mặt hàng</th>
+    <th>Giá tiền</th>
+    <th>Số lượng</th>
+    <th>Thành tiền</th>
+    <th></th>
+  </tr>
+</table>
+
+
+<div class="note">
+  Số lượng người chơi: <input id="playerCount" value="0" style="width:80px">
+</div>
+
+<h2>2. Thành viên</h2>
+<div style="display:flex; gap:10px">
+  <input type="text" id="newName" placeholder="Tên thành viên">
+  <select id="newJoin">
+    <option value="Y">Y</option>
+    <option value="N">N</option>
+  </select>
+  <button class="btn" onclick="addMember()">Thêm</button>
+</div>
+<table id="memberTable">
+  <tr>
+    <th>Thành viên</th>
+    <th>Giờ chơi</th>
+    <th>Lên sân (Y/N)</th>
+    <th>Tiền sân</th>
+    <th>Tiền cầu</th>
+    <th>Trà đá</th>
+    <th>Khác</th>
+    <th>Phát sinh</th>
+    <th>Tổng</th>
+	<th></th>
+  </tr>
+</table>
+
+<script>
+const expenses = [];
+
+function addExpense() {
+  const type = itemType.value;
+  const row = expenseTable.insertRow();
+  row.dataset.type = type;
+
+  row.innerHTML = `
+    <td>${label(type)}</td>
+    <td><input type="number" value="0" style="width:100%"></td>
+    <td><input type="number" value="0" style="width:100%"></td>
+    <td class="total">0</td>
+    <td><button onclick="removeRow(this)">x</button></td>
+  `;
+
+  row.querySelectorAll('input').forEach(i => i.addEventListener('input', calcExpenses));
+}
+
+function removeRow(btn) {
+  btn.closest('tr').remove();
+  calcExpenses();
+}
+
+function label(t) {
+  return t === 'San' ? 'Sân' : t === 'Cau' ? 'Cầu' : t === 'Tea' ? 'Trà đá' : 'Khác';
+}
+
+function calcExpenses() {
+  let sum = { San:0, Cau:0, Tea:0, Other:0 };
+
+  [...expenseTable.rows].slice(1).forEach(r => {
+    const price = +r.cells[1].querySelector('input').value;
+    const qty = +r.cells[2].querySelector('input').value;
+    let total = 0;
+
+    if (r.dataset.type === 'Cau') total = price / 12 * qty;
+    else total = price * qty;
+
+    r.querySelector('.total').textContent = total.toFixed(0);
+    sum[r.dataset.type] += total;
+  });
+
+  updateMembers(sum);
+}
+
+function addMember() {
+  const name = newName.value || '---';
+  const join = newJoin.value;
+
+  const row = memberTable.insertRow();
+  row.innerHTML = `
+    <td>${name}</td>
+    <td>1</td>
+    <td>${join}</td>
+    <td class="san">0</td>
+    <td class="cau">0</td>
+    <td class="tea">0</td>
+    <td class="other">0</td>
+    <td><input type="number" value="0" class="extra"></td>
+    <td class="sum">0</td>
+    <td><button onclick="removeMember(this)">x</button></td>
+  `;
+
+  newName.value = '';
+  updateMembers(getSums());
+}
+function removeMember(btn) {
+  btn.closest('tr').remove();
+  updateMembers(getSums());
+}
+
+function getSums() {
+  let s = { San:0, Cau:0, Tea:0, Other:0 };
+  [...expenseTable.rows].slice(1).forEach(r => s[r.dataset.type] += +r.querySelector('.total').textContent);
+  return s;
+}
+function getPlayerCount() {
+  return memberTable.rows.length - 1; // trừ header
+}
+function updateMembers(sum) {
+  const players = getPlayerCount() || 1;
+  playerCount.value = players; // auto cập nhật UI
+
+  const sanEach = sum.San / players;
+
+  const activePlayers =
+    [...memberTable.rows]
+      .slice(1)
+      .filter(r => r.cells[2].textContent === 'Y')
+      .length || 1;
+
+  [...memberTable.rows].slice(1).forEach(r => {
+    const join = r.cells[2].textContent;
+
+    r.querySelector('.san').textContent = sanEach.toFixed(0);
+    r.querySelector('.cau').textContent = join === 'Y' ? (sum.Cau / activePlayers).toFixed(0) : 0;
+    r.querySelector('.tea').textContent = join === 'Y' ? (sum.Tea / activePlayers).toFixed(0) : 0;
+    r.querySelector('.other').textContent = join === 'Y' ? (sum.Other / activePlayers).toFixed(0) : 0;
+
+    const extra = +r.querySelector('.extra').value;
+    const total =
+      sanEach +
+      (join === 'Y'
+        ? sum.Cau / activePlayers + sum.Tea / activePlayers + sum.Other / activePlayers
+        : 0) +
+      extra;
+
+    r.querySelector('.sum').textContent = total.toFixed(0);
+  });
+}
+
+playerCount.addEventListener('input', ()=>updateMembers(getSums()));
+</script>
+
+</body>
+</html>
