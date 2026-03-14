@@ -10,6 +10,7 @@
     th { background:#e9f5e1 }
     h2 { margin-top:30px }
     input, select { width:10%; box-sizing:border-box }
+    input.extra { width:100% }
     .btn { padding:8px 16px; cursor:pointer }
     .note { background:#fff3cd; padding:10px; margin-bottom:20px }
   </style>
@@ -51,6 +52,10 @@
   <button class="btn" onclick="addMember()">Thêm</button>
 </div>
 <table id="memberTable">
+  <caption style="caption-side:top; text-align:left; padding:8px 0">
+    <button class="btn" type="button" onclick="completeCalculation()">Hoàn thành</button>
+    <button class="btn" type="button" onclick="clearAllData()" style="margin-left:8px">Clear</button>
+  </caption>
   <tr>
     <th>Thành viên</th>
     <th>Giờ chơi</th>
@@ -68,25 +73,268 @@
 <script>
 const expenses = [];
 
-function addExpense() {
-  const type = itemType.value;
-  const row = expenseTable.insertRow();
-  row.dataset.type = type;
+let jsonFileHandle = null;
+const DATA_JSON_URL = './data.json';
+const SAVE_ENDPOINT_URL = './save.php';
 
+document.addEventListener('DOMContentLoaded', () => {
+  loadDataFromJson();
+});
+
+async function loadDataFromJson() {
+  try {
+    const res = await fetch(DATA_JSON_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    applyDataToUI(data);
+  } catch (err) {
+    // Khi mở bằng file:// thường không fetch được file cục bộ.
+    console.warn('Không load được data.json. Gợi ý: mở bằng Live Server/localhost để tự load.', err);
+  }
+}
+
+function normalizeVietnamese(str) {
+  return (str || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function typeKeyFromAny(typeValue) {
+  const raw = (typeValue || '').toString();
+  if (raw === 'San' || raw === 'Cau' || raw === 'Tea' || raw === 'Other') return raw;
+
+  const t = normalizeVietnamese(raw);
+  if (t.includes('san')) return 'San';
+  if (t.includes('cau')) return 'Cau';
+  if (t.includes('tra')) return 'Tea';
+  return 'Other';
+}
+
+function clearTablesOnly() {
+  while (expenseTable.rows.length > 1) expenseTable.deleteRow(1);
+  while (memberTable.rows.length > 1) memberTable.deleteRow(1);
+}
+
+function addExpenseRow(typeKey, price = 0, quantity = 0, total = 0) {
+  const row = expenseTable.insertRow();
+  row.dataset.type = typeKey;
   row.innerHTML = `
-    <td>${label(type)}</td>
-    <td><input type="number" value="0" style="width:100%"></td>
-    <td><input type="number" value="0" style="width:100%"></td>
-    <td class="total">0</td>
+    <td>${label(typeKey)}</td>
+    <td><input type="number" value="${Number(price) || 0}" style="width:100%"></td>
+    <td><input type="number" value="${Number(quantity) || 0}" style="width:100%"></td>
+    <td class="total">${Number(total) || 0}</td>
     <td><button onclick="removeRow(this)">x</button></td>
   `;
+}
 
-  row.querySelectorAll('input').forEach(i => i.addEventListener('input', calcExpenses));
+function addMemberRow(member) {
+  const name = member?.name ?? '---';
+  const hours = Number(member?.hours ?? 1) || 1;
+  const join = (member?.join ?? 'Y') === 'N' ? 'N' : 'Y';
+  const extra = Number(member?.extra ?? 0) || 0;
+
+  const computed = member?.computed ?? {};
+  const san = Number(computed?.san ?? 0) || 0;
+  const cau = Number(computed?.cau ?? 0) || 0;
+  const tea = Number(computed?.tea ?? 0) || 0;
+  const other = Number(computed?.other ?? 0) || 0;
+  const sum = Number(computed?.sum ?? 0) || 0;
+
+  const row = memberTable.insertRow();
+  row.innerHTML = `
+    <td>${name}</td>
+    <td>${hours}</td>
+    <td>${join}</td>
+    <td class="san">${san}</td>
+    <td class="cau">${cau}</td>
+    <td class="tea">${tea}</td>
+    <td class="other">${other}</td>
+    <td><input type="number" value="${extra}" class="extra"></td>
+    <td class="sum">${sum}</td>
+    <td><button onclick="removeMember(this)">x</button></td>
+  `;
+}
+
+function applyDataToUI(data) {
+  if (!data || typeof data !== 'object') return;
+
+  const expensesData = Array.isArray(data.expenses) ? data.expenses : [];
+  const membersData = Array.isArray(data.members) ? data.members : [];
+
+  clearTablesOnly();
+
+  expensesData.forEach(e => {
+    const typeKey = typeKeyFromAny(e?.type);
+    addExpenseRow(typeKey, e?.price, e?.quantity, e?.total);
+  });
+
+  membersData.forEach(m => addMemberRow(m));
+
+  playerCount.value = membersData.length;
+}
+
+function safeNumberFromText(text) {
+  const n = Number((text ?? '').toString().replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
+function collectDataFromUI() {
+  const expensesOut = [...expenseTable.rows]
+    .slice(1)
+    .map(r => {
+      const typeKey = r.dataset.type;
+      const price = Number(r.cells[1].querySelector('input')?.value ?? 0) || 0;
+      const quantity = Number(r.cells[2].querySelector('input')?.value ?? 0) || 0;
+      const total = safeNumberFromText(r.querySelector('.total')?.textContent);
+
+      return {
+        type: label(typeKey),
+        price,
+        quantity,
+        total
+      };
+    });
+
+  const membersOut = [...memberTable.rows]
+    .slice(1)
+    .map(r => {
+      const name = r.cells[0]?.textContent ?? '---';
+      const hours = safeNumberFromText(r.cells[1]?.textContent);
+      const join = (r.cells[2]?.textContent ?? 'Y') === 'N' ? 'N' : 'Y';
+      const extra = Number(r.querySelector('.extra')?.value ?? 0) || 0;
+
+      const san = safeNumberFromText(r.querySelector('.san')?.textContent);
+      const cau = safeNumberFromText(r.querySelector('.cau')?.textContent);
+      const tea = safeNumberFromText(r.querySelector('.tea')?.textContent);
+      const other = safeNumberFromText(r.querySelector('.other')?.textContent);
+      const sum = safeNumberFromText(r.querySelector('.sum')?.textContent);
+
+      return {
+        name,
+        hours: hours || 1,
+        join,
+        extra,
+        computed: {
+          san,
+          cau,
+          tea,
+          other,
+          incurred: extra,
+          sum
+        }
+      };
+    });
+
+  // Giữ đúng cấu trúc file data.json: chỉ có expenses và members
+  return {
+    expenses: expensesOut,
+    members: membersOut
+  };
+}
+
+function downloadJson(data, filename = 'data.json') {
+  const text = JSON.stringify(data, null, '\t');
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function ensureJsonFileHandle() {
+  if (jsonFileHandle) return jsonFileHandle;
+  if (!window.showSaveFilePicker) return null;
+
+  jsonFileHandle = await window.showSaveFilePicker({
+    suggestedName: 'data.json',
+    types: [
+      {
+        description: 'JSON',
+        accept: { 'application/json': ['.json'] }
+      }
+    ]
+  });
+
+  return jsonFileHandle;
+}
+
+async function persistDataJson(data) {
+  // Ưu tiên ghi lên server (Apache/PHP) nếu có.
+  try {
+    const isHttp = location.protocol === 'http:' || location.protocol === 'https:';
+    if (isHttp) {
+      const res = await fetch(SAVE_ENDPOINT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        const payload = await res.json().catch(() => ({ ok: true }));
+        if (payload?.ok === false) throw new Error(payload?.error || 'Save failed');
+        return;
+      }
+    }
+
+    // File System Access API chỉ hoạt động tốt trên https/localhost.
+    const handle = await ensureJsonFileHandle();
+    if (!handle) {
+      downloadJson(data);
+      return;
+    }
+
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(data, null, '\t'));
+    await writable.close();
+  } catch (err) {
+    // Nếu user bấm Cancel hoặc trình duyệt chặn, fallback sang download.
+    console.warn('Không ghi trực tiếp được data.json, fallback download.', err);
+    downloadJson(data);
+  }
+}
+
+async function completeCalculation() {
+  calcExpenses();
+
+  const data = collectDataFromUI();
+  await persistDataJson(data);
+}
+
+async function clearAllData() {
+  // Clear expense rows (keep header)
+  while (expenseTable.rows.length > 1) {
+    expenseTable.deleteRow(1);
+  }
+
+  // Clear member rows (keep header)
+  while (memberTable.rows.length > 1) {
+    memberTable.deleteRow(1);
+  }
+
+  // Reset inputs / UI
+  newName.value = '';
+  newJoin.value = 'Y';
+  itemType.value = 'San';
+  playerCount.value = 0;
+
+  const data = { expenses: [], members: [] };
+  await persistDataJson(data);
+}
+
+function addExpense() {
+  const type = itemType.value;
+  addExpenseRow(type, 0, 0, 0);
 }
 
 function removeRow(btn) {
   btn.closest('tr').remove();
-  calcExpenses();
 }
 
 function label(t) {
@@ -115,26 +363,18 @@ function addMember() {
   const name = newName.value || '---';
   const join = newJoin.value;
 
-  const row = memberTable.insertRow();
-  row.innerHTML = `
-    <td>${name}</td>
-    <td>1</td>
-    <td>${join}</td>
-    <td class="san">0</td>
-    <td class="cau">0</td>
-    <td class="tea">0</td>
-    <td class="other">0</td>
-    <td><input type="number" value="0" class="extra"></td>
-    <td class="sum">0</td>
-    <td><button onclick="removeMember(this)">x</button></td>
-  `;
+  addMemberRow({
+    name,
+    hours: 1,
+    join,
+    extra: 0,
+    computed: { san: 0, cau: 0, tea: 0, other: 0, incurred: 0, sum: 0 }
+  });
 
   newName.value = '';
-  updateMembers(getSums());
 }
 function removeMember(btn) {
   btn.closest('tr').remove();
-  updateMembers(getSums());
 }
 
 function getSums() {
@@ -146,10 +386,11 @@ function getPlayerCount() {
   return memberTable.rows.length - 1; // trừ header
 }
 function updateMembers(sum) {
-  const players = getPlayerCount() || 1;
-  playerCount.value = players; // auto cập nhật UI
+  const playerCountValue = getPlayerCount();
+  playerCount.value = playerCountValue; // chỉ cập nhật khi bấm Hoàn thành
 
-  const sanEach = sum.San / players;
+  const playersDenom = playerCountValue || 1;
+  const sanEach = sum.San / playersDenom;
 
   const activePlayers =
     [...memberTable.rows]
@@ -177,7 +418,6 @@ function updateMembers(sum) {
   });
 }
 
-playerCount.addEventListener('input', ()=>updateMembers(getSums()));
 </script>
 
 </body>
