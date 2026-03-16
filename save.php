@@ -36,13 +36,12 @@ if (!is_array($data)) {
     exit;
 }
 
-$expenses = $data['expenses'] ?? null;
-$members = $data['members'] ?? null;
-
-if (!is_array($expenses) || !is_array($members)) {
-    http_response_code(400);
-    echo json_encode(['ok' => false, 'error' => 'Missing expenses/members arrays']);
-    exit;
+function normalize_date($v) {
+    $v = preg_replace('/\s+/', ' ', trim((string)$v));
+    if ($v === '') return '';
+    // Hard cap to keep JSON reasonable
+    if (strlen($v) > 100) $v = substr($v, 0, 100);
+    return $v;
 }
 
 function to_number($v) {
@@ -61,39 +60,78 @@ function normalize_join($v) {
 
 // Sanitize to keep the exact top-level structure { expenses, members }
 $out = [
-    'expenses' => [],
-    'members' => []
+    'days' => []
 ];
 
-foreach ($expenses as $e) {
-    if (!is_array($e)) continue;
-    $out['expenses'][] = [
-        'type' => (string)($e['type'] ?? ''),
-        'price' => to_number($e['price'] ?? 0),
-        'quantity' => to_number($e['quantity'] ?? 0),
-        'total' => to_number($e['total'] ?? 0)
-    ];
+function sanitize_expenses($expenses) {
+    $out = [];
+    foreach ($expenses as $e) {
+        if (!is_array($e)) continue;
+        $out[] = [
+            'type' => (string)($e['type'] ?? ''),
+            'price' => to_number($e['price'] ?? 0),
+            'quantity' => to_number($e['quantity'] ?? 0),
+            'total' => to_number($e['total'] ?? 0)
+        ];
+    }
+    return $out;
 }
 
-foreach ($members as $m) {
-    if (!is_array($m)) continue;
-    $computed = is_array($m['computed'] ?? null) ? $m['computed'] : [];
+function sanitize_members($members) {
+    $out = [];
+    foreach ($members as $m) {
+        if (!is_array($m)) continue;
+        $computed = is_array($m['computed'] ?? null) ? $m['computed'] : [];
+        $extra = to_number($m['extra'] ?? 0);
+        $out[] = [
+            'name' => (string)($m['name'] ?? ''),
+            'hours' => to_number($m['hours'] ?? 1) ?: 1,
+            'join' => normalize_join($m['join'] ?? 'Y'),
+            'extra' => $extra,
+            'computed' => [
+                'san' => to_number($computed['san'] ?? 0),
+                'cau' => to_number($computed['cau'] ?? 0),
+                'tea' => to_number($computed['tea'] ?? 0),
+                'other' => to_number($computed['other'] ?? 0),
+                'incurred' => to_number($computed['incurred'] ?? $extra),
+                'sum' => to_number($computed['sum'] ?? 0)
+            ]
+        ];
+    }
+    return $out;
+}
 
-    $extra = to_number($m['extra'] ?? 0);
+// New preferred format: { days: [ { date, expenses, members } ] }
+if (is_array($data['days'] ?? null)) {
+    foreach ($data['days'] as $day) {
+        if (!is_array($day)) continue;
+        $date = normalize_date($day['date'] ?? '');
+        if ($date === '') continue;
+        $expenses = is_array($day['expenses'] ?? null) ? $day['expenses'] : [];
+        $members = is_array($day['members'] ?? null) ? $day['members'] : [];
 
-    $out['members'][] = [
-        'name' => (string)($m['name'] ?? ''),
-        'hours' => to_number($m['hours'] ?? 1) ?: 1,
-        'join' => normalize_join($m['join'] ?? 'Y'),
-        'extra' => $extra,
-        'computed' => [
-            'san' => to_number($computed['san'] ?? 0),
-            'cau' => to_number($computed['cau'] ?? 0),
-            'tea' => to_number($computed['tea'] ?? 0),
-            'other' => to_number($computed['other'] ?? 0),
-            'incurred' => to_number($computed['incurred'] ?? $extra),
-            'sum' => to_number($computed['sum'] ?? 0)
-        ]
+        $out['days'][] = [
+            'date' => $date,
+            'expenses' => sanitize_expenses($expenses),
+            'members' => sanitize_members($members)
+        ];
+    }
+} else {
+    // Legacy format: { expenses: [...], members: [...] }
+    $expenses = $data['expenses'] ?? null;
+    $members = $data['members'] ?? null;
+
+    if (!is_array($expenses) || !is_array($members)) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Missing days[] or expenses/members arrays']);
+        exit;
+    }
+
+    $today = date('Y-m-d');
+    $out['days'][] = [
+        'date' => $today,
+        'expenses' => sanitize_expenses($expenses),
+        'members' => sanitize_members($members)
     ];
 }
 

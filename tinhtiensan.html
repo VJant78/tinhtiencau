@@ -18,6 +18,11 @@
 <body>
 
 <h2>1. Tổng chi</h2>
+<div style="display:flex; gap:10px; margin-bottom:10px; align-items:center">
+  <div>Ngày:</div>
+  <input id="calcDate" type="text" list="dateList" placeholder="VD: 11/2/2025 1" style="width:180px">
+  <datalist id="dateList"></datalist>
+</div>
 <div style="display:flex; gap:10px; margin-bottom:10px">
   <select id="itemType">
     <option value="San">Sân</option>
@@ -77,8 +82,16 @@ let jsonFileHandle = null;
 const DATA_JSON_URL = './data.json';
 const SAVE_ENDPOINT_URL = './save.php';
 
+let dataStore = { days: [] };
+
 document.addEventListener('DOMContentLoaded', () => {
   loadDataFromJson();
+
+  calcDate.addEventListener('change', () => {
+    const selected = normalizeDayKey(calcDate.value);
+    if (!selected) return;
+    loadDayToUI(selected);
+  });
 });
 
 async function loadDataFromJson() {
@@ -86,11 +99,111 @@ async function loadDataFromJson() {
     const res = await fetch(DATA_JSON_URL, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    applyDataToUI(data);
+    dataStore = normalizeDataStore(data);
+    syncDateList();
+
+    const initialDate = pickInitialDate();
+    calcDate.value = initialDate;
+    loadDayToUI(initialDate);
   } catch (err) {
     // Khi mở bằng file:// thường không fetch được file cục bộ.
     console.warn('Không load được data.json. Gợi ý: mở bằng Live Server/localhost để tự load.', err);
+
+    // Fallback: vẫn set ngày hôm nay để user nhập.
+    const today = normalizeDayKey(new Date().toISOString().slice(0, 10));
+    calcDate.value = today;
   }
+}
+
+function normalizeDayKey(value) {
+  const v = (value || '').toString().trim().replace(/\s+/g, ' ');
+  if (!v) return '';
+  // Hard cap to keep JSON reasonable
+  return v.length > 100 ? v.slice(0, 100) : v;
+}
+
+function normalizeDataStore(data) {
+  // New format: { days: [ { date, expenses, members } ] }
+  if (data && typeof data === 'object' && Array.isArray(data.days)) {
+    return {
+      days: data.days
+        .filter(d => d && typeof d === 'object')
+        .map(d => ({
+          date: normalizeDayKey(d.date),
+          expenses: Array.isArray(d.expenses) ? d.expenses : [],
+          members: Array.isArray(d.members) ? d.members : []
+        }))
+        .filter(d => d.date)
+    };
+  }
+
+  // Old format (backward compatible): { expenses: [...], members: [...] }
+  if (data && typeof data === 'object' && (Array.isArray(data.expenses) || Array.isArray(data.members))) {
+    const today = normalizeDayKey(new Date().toISOString().slice(0, 10));
+    return {
+      days: [
+        {
+          date: today,
+          expenses: Array.isArray(data.expenses) ? data.expenses : [],
+          members: Array.isArray(data.members) ? data.members : []
+        }
+      ]
+    };
+  }
+
+  return { days: [] };
+}
+
+function pickInitialDate() {
+  const today = normalizeDayKey(new Date().toISOString().slice(0, 10));
+  if (!dataStore.days.length) return today;
+  // keep insertion order; default to the last saved day
+  return dataStore.days[dataStore.days.length - 1].date || today;
+}
+
+function syncDateList() {
+  dateList.innerHTML = '';
+  const seen = new Set();
+  (dataStore.days || []).forEach(rec => {
+    const d = rec?.date;
+    if (!d || seen.has(d)) return;
+    seen.add(d);
+    const opt = document.createElement('option');
+    opt.value = d;
+    dateList.appendChild(opt);
+  });
+}
+
+function getDayRecord(date) {
+  const d = normalizeDayKey(date);
+  if (!d) return null;
+  return (dataStore.days || []).find(x => x.date === d) || null;
+}
+
+function ensureDayRecord(date) {
+  const d = normalizeDayKey(date);
+  if (!d) return null;
+  let rec = getDayRecord(d);
+  if (rec) return rec;
+  rec = { date: d, expenses: [], members: [] };
+  dataStore.days.push(rec);
+  syncDateList();
+  return rec;
+}
+
+function loadDayToUI(date) {
+  const d = normalizeDayKey(date);
+  if (!d) return;
+
+  const rec = getDayRecord(d);
+  if (!rec) {
+    // New date not in JSON yet: show empty UI
+    clearTablesOnly();
+    playerCount.value = 0;
+    return;
+  }
+
+  applyDataToUI({ expenses: rec.expenses, members: rec.members });
 }
 
 function normalizeVietnamese(str) {
@@ -235,6 +348,17 @@ function collectDataFromUI() {
   };
 }
 
+function collectAndUpsertCurrentDay() {
+  const selected = normalizeDayKey(calcDate.value);
+  if (!selected) throw new Error('Bạn chưa nhập Ngày.');
+
+  const rec = ensureDayRecord(selected);
+  const payload = collectDataFromUI();
+  rec.expenses = payload.expenses;
+  rec.members = payload.members;
+  return { days: dataStore.days };
+}
+
 function downloadJson(data, filename = 'data.json') {
   const text = JSON.stringify(data, null, '\t');
   const blob = new Blob([text], { type: 'application/json' });
@@ -277,8 +401,15 @@ async function persistDataJson(data) {
       });
 
       if (res.ok) {
-        const payload = await res.json().catch(() => ({ ok: true }));
-        if (payload?.ok === false) throw new Error(payload?.error || 'Save failed');
+        const text = await res.text();
+        let payload;
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          throw new Error('save.php không trả JSON hợp lệ (có thể PHP chưa được bật trên server).');
+        }
+
+        if (payload?.ok !== true) throw new Error(payload?.error || 'Save failed');
         return;
       }
     }
@@ -303,11 +434,13 @@ async function persistDataJson(data) {
 async function completeCalculation() {
   calcExpenses();
 
-  const data = collectDataFromUI();
-  await persistDataJson(data);
+  const store = collectAndUpsertCurrentDay();
+  await persistDataJson(store);
 }
 
 async function clearAllData() {
+  const selected = normalizeDayKey(calcDate.value);
+
   // Clear expense rows (keep header)
   while (expenseTable.rows.length > 1) {
     expenseTable.deleteRow(1);
@@ -324,8 +457,13 @@ async function clearAllData() {
   itemType.value = 'San';
   playerCount.value = 0;
 
-  const data = { expenses: [], members: [] };
-  await persistDataJson(data);
+  // Remove the selected day from JSON entirely (keep other days)
+  if (selected) {
+    dataStore.days = (dataStore.days || []).filter(d => d?.date !== selected);
+    syncDateList();
+  }
+
+  await persistDataJson({ days: dataStore.days });
 }
 
 function addExpense() {
