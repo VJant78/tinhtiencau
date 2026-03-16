@@ -97,7 +97,19 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadDataFromJson() {
   try {
     const res = await fetch(DATA_JSON_URL, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // Nếu file chưa tồn tại (404) thì khởi tạo rỗng và cho phép user lưu để tạo lại file.
+      if (res.status === 404) {
+        dataStore = { days: [] };
+        syncDateList();
+
+        const initialDate = pickInitialDate();
+        calcDate.value = initialDate;
+        loadDayToUI(initialDate);
+        return;
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
     const data = await res.json();
     dataStore = normalizeDataStore(data);
     syncDateList();
@@ -107,7 +119,10 @@ async function loadDataFromJson() {
     loadDayToUI(initialDate);
   } catch (err) {
     // Khi mở bằng file:// thường không fetch được file cục bộ.
-    console.warn('Không load được data.json. Gợi ý: mở bằng Live Server/localhost để tự load.', err);
+    console.warn('Không load được data.json. Nếu chạy qua Apache/PHP, file sẽ được tạo lại khi bấm Hoàn thành/Clear.', err);
+
+    dataStore = { days: [] };
+    syncDateList();
 
     // Fallback: vẫn set ngày hôm nay để user nhập.
     const today = normalizeDayKey(new Date().toISOString().slice(0, 10));
