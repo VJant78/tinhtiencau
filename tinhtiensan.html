@@ -13,6 +13,29 @@
     input.extra { width:100% }
     .btn { padding:8px 16px; cursor:pointer }
     .note { background:#fff3cd; padding:10px; margin-bottom:20px }
+    .date-dropdown {
+      position: absolute;
+      left: 0;
+      top: calc(100% + 4px);
+      width: 180px;
+      max-height: 220px;
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #ccc;
+      z-index: 1000;
+      display: none;
+    }
+    .date-dropdown button {
+      width: 100%;
+      text-align: left;
+      padding: 6px 8px;
+      border: 0;
+      background: #fff;
+      cursor: pointer;
+    }
+    .date-dropdown button:hover {
+      background: #e9f5e1;
+    }
   </style>
 </head>
 <body>
@@ -20,8 +43,10 @@
 <h2>1. Tổng chi</h2>
 <div style="display:flex; gap:10px; margin-bottom:10px; align-items:center">
   <div>Ngày:</div>
-  <input id="calcDate" type="text" list="dateList" placeholder="VD: 11/2/2025 1" style="width:180px">
-  <datalist id="dateList"></datalist>
+  <div style="position:relative">
+    <input id="calcDate" type="text" placeholder="VD: 11/2/2025 1" style="width:180px">
+    <div id="dateDropdown" class="date-dropdown"></div>
+  </div>
 </div>
 <div style="display:flex; gap:10px; margin-bottom:10px">
   <select id="itemType">
@@ -86,6 +111,27 @@ let dataStore = { days: [] };
 
 document.addEventListener('DOMContentLoaded', () => {
   loadDataFromJson();
+
+  // Luôn xổ toàn bộ danh sách (không filter như datalist native)
+  calcDate.addEventListener('focus', showDateDropdown);
+  calcDate.addEventListener('click', showDateDropdown);
+  calcDate.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      hideDateDropdown();
+      return;
+    }
+    if (e.key === 'Enter') {
+      const selected = normalizeDayKey(calcDate.value);
+      if (selected) loadDayToUI(selected);
+      hideDateDropdown();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target === calcDate) return;
+    if (dateDropdown.contains(e.target)) return;
+    hideDateDropdown();
+  });
 
   calcDate.addEventListener('change', () => {
     const selected = normalizeDayKey(calcDate.value);
@@ -177,16 +223,38 @@ function pickInitialDate() {
 }
 
 function syncDateList() {
-  dateList.innerHTML = '';
+  renderDateDropdown();
+}
+
+function renderDateDropdown() {
+  dateDropdown.innerHTML = '';
   const seen = new Set();
+
   (dataStore.days || []).forEach(rec => {
     const d = rec?.date;
     if (!d || seen.has(d)) return;
     seen.add(d);
-    const opt = document.createElement('option');
-    opt.value = d;
-    dateList.appendChild(opt);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = d;
+    btn.addEventListener('click', () => {
+      calcDate.value = d;
+      hideDateDropdown();
+      loadDayToUI(d);
+    });
+    dateDropdown.appendChild(btn);
   });
+}
+
+function showDateDropdown() {
+  renderDateDropdown();
+  if (!dateDropdown.childElementCount) return;
+  dateDropdown.style.display = 'block';
+}
+
+function hideDateDropdown() {
+  dateDropdown.style.display = 'none';
 }
 
 function getDayRecord(date) {
