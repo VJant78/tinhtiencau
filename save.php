@@ -1,7 +1,7 @@
 <?php
 // save.php
-// Receives JSON { expenses: [...], members: [...] } and overwrites data.json.
-// Deploy this file alongside data.json and tinhtiensan.html on Apache with PHP enabled.
+// Receives JSON { days: [...] } and overwrites data.json.
+// Deploy this file alongside data.json and index.html on Apache with PHP enabled.
 //
 // Optional: set a token to protect the endpoint.
 $saveToken = '';
@@ -58,7 +58,7 @@ function normalize_join($v) {
     return ($v === 'N') ? 'N' : 'Y';
 }
 
-// Sanitize to keep the exact top-level structure { expenses, members }
+// Sanitize to keep the top-level structure { days }
 $out = [
     'days' => []
 ];
@@ -136,7 +136,7 @@ if (is_array($data['days'] ?? null)) {
 }
 
 $target = __DIR__ . DIRECTORY_SEPARATOR . 'data.json';
-$json = json_encode($out, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+$json = json_encode($out, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
 if ($json === false) {
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'Failed to encode JSON']);

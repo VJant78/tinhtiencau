@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "tinhtiencau": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "days": {
+        "$dayId": {
+          ".validate": "newData.val() === null || (newData.hasChildren(['date', 'expenses', 'members']) && newData.child('date').isString() && newData.child('date').val().length > 0 && newData.child('date').val().length <= 100)"
+        }
+      }
+    }
+  }
+}

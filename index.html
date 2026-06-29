@@ -4,15 +4,179 @@
   <meta charset="UTF-8" />
   <title>Tính tiền cầu</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#f7f7f7; padding:20px }
-    table { border-collapse: collapse; width:100%; margin-bottom:20px; background:#fff }
-    th, td { border:1px solid #ccc; padding:6px 8px; text-align:center }
-    th { background:#e9f5e1 }
-    h2 { margin-top:30px }
-    input, select { width:10%; box-sizing:border-box }
-    input.extra { width:100% }
-    .btn { padding:8px 16px; cursor:pointer }
-    .note { background:#fff3cd; padding:10px; margin-bottom:20px }
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --line: #d7e1ea;
+      --text: #1f2937;
+      --muted: #64748b;
+      --accent: #2f855a;
+      --accent-weak: #e8f5ee;
+      --danger: #b42318;
+      --warning: #8a5b00;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg, #eef4fb 0%, var(--bg) 100%);
+      color: var(--text);
+    }
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+    .header h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+    }
+    .header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .status {
+      min-width: 240px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .status.success { border-color: #b6e3c8; color: #166534; background: #f0fbf4; }
+    .status.warning { border-color: #f7d694; color: var(--warning); background: #fffaf0; }
+    .status.error { border-color: #f5b8b8; color: var(--danger); background: #fff5f5; }
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .field {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    label {
+      font-weight: 700;
+    }
+    input, select, button {
+      font: inherit;
+    }
+    input, select {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--text);
+    }
+    input[type="number"] { text-align: right; }
+    input:not(.extra), select {
+      min-width: 120px;
+    }
+    input.extra { width: 100%; }
+    .date-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .btn {
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn:hover {
+      background: #f8fafc;
+      border-color: #b6c6d6;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .btn.primary:hover { background: #256848; }
+    .btn.danger {
+      background: #fff5f5;
+      border-color: #f5b8b8;
+      color: var(--danger);
+    }
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .note {
+      background: #fff8e6;
+      border: 1px solid #f6dc9a;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: #fff;
+      min-width: 760px;
+    }
+    th, td {
+      border-bottom: 1px solid #e8eef4;
+      padding: 8px 10px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    th {
+      background: #f1f7f2;
+      color: #214b2f;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tbody tr:hover { background: #fbfdff; }
+    caption {
+      text-align: left;
+      padding: 8px 0 12px;
+      caption-side: top;
+    }
     .date-dropdown {
       position: absolute;
       left: 0;
@@ -36,83 +200,134 @@
     .date-dropdown button:hover {
       background: #e9f5e1;
     }
+    @media (max-width: 768px) {
+      .header { flex-direction: column; }
+      .status { width: 100%; min-width: 0; }
+      .app { padding: 12px; }
+      .panel { padding: 12px; }
+      .toolbar, .field, .note { align-items: stretch; }
+      .btn, input, select { width: 100%; }
+      .date-wrap { width: 100%; }
+      .date-wrap input { width: 100%; }
+    }
   </style>
 </head>
 <body>
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>Tính tiền cầu</h1>
+      <p>Nhập theo từng ngày, lưu lại an toàn hơn và xem danh sách ngày đã có dữ liệu ngay trong trang.</p>
+    </div>
+    <div id="saveStatus" class="status">Đang tải dữ liệu...</div>
+  </div>
 
-<h2>1. Tổng chi</h2>
-<div style="display:flex; gap:10px; margin-bottom:10px; align-items:center">
-  <div>Ngày:</div>
-  <div style="position:relative">
-    <input id="calcDate" type="text" placeholder="VD: 11/2/2025 1" style="width:180px">
-    <div id="dateDropdown" class="date-dropdown"></div>
+  <div class="grid">
+    <section class="panel">
+      <h2>1. Tổng chi</h2>
+      <div class="field" style="margin-bottom:12px">
+        <label for="calcDate">Ngày</label>
+        <div class="date-wrap">
+          <input id="calcDate" type="text" placeholder="VD: 11/2/2025 1">
+          <div id="dateDropdown" class="date-dropdown"></div>
+        </div>
+        <span class="muted">Gõ hoặc chọn từ danh sách ngày đã lưu.</span>
+      </div>
+      <div class="toolbar">
+        <select id="itemType">
+          <option value="San">Sân</option>
+          <option value="Cau">Cầu</option>
+          <option value="Tea">Trà đá</option>
+          <option value="Other">Khác</option>
+        </select>
+        <button class="btn" type="button" onclick="addExpense()">+ Thêm mặt hàng</button>
+      </div>
+      <div class="table-wrap">
+        <table id="expenseTable">
+          <tr>
+            <th>Mặt hàng</th>
+            <th>Giá tiền</th>
+            <th>Số lượng</th>
+            <th>Thành tiền</th>
+            <th></th>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="note">
+        <strong>Số lượng người chơi:</strong> <input id="playerCount" value="0" style="width:96px">
+        <span class="muted">Tự cập nhật theo số dòng thành viên.</span>
+      </div>
+
+      <h2>2. Thành viên</h2>
+      <div class="toolbar">
+        <input type="text" id="newName" placeholder="Tên thành viên">
+        <select id="newJoin">
+          <option value="Y">Y</option>
+          <option value="N">N</option>
+        </select>
+        <button class="btn" type="button" onclick="addMember()">Thêm</button>
+      </div>
+      <div class="table-wrap">
+        <table id="memberTable">
+          <caption>
+            <button class="btn primary" type="button" onclick="completeCalculation()">Tính & lưu</button>
+            <button class="btn danger" type="button" onclick="clearAllData()" style="margin-left:8px">Xóa ngày</button>
+          </caption>
+          <tr>
+            <th>Thành viên</th>
+            <th>Giờ chơi</th>
+            <th>Lên sân (Y/N)</th>
+            <th>Tiền sân</th>
+            <th>Tiền cầu</th>
+            <th>Trà đá</th>
+            <th>Khác</th>
+            <th>Phát sinh</th>
+            <th>Tổng</th>
+            <th></th>
+          </tr>
+        </table>
+      </div>
+    </section>
   </div>
 </div>
-<div style="display:flex; gap:10px; margin-bottom:10px">
-  <select id="itemType">
-    <option value="San">Sân</option>
-    <option value="Cau">Cầu</option>
-    <option value="Tea">Trà đá</option>
-    <option value="Other">Khác</option>
-  </select>
-  <button class="btn" onclick="addExpense()">+ Thêm mặt hàng</button>
-</div>
-<table id="expenseTable">
-  <tr>
-    <th>Mặt hàng</th>
-    <th>Giá tiền</th>
-    <th>Số lượng</th>
-    <th>Thành tiền</th>
-    <th></th>
-  </tr>
-</table>
 
-
-<div class="note">
-  Số lượng người chơi: <input id="playerCount" value="0" style="width:80px">
-</div>
-
-<h2>2. Thành viên</h2>
-<div style="display:flex; gap:10px">
-  <input type="text" id="newName" placeholder="Tên thành viên">
-  <select id="newJoin">
-    <option value="Y">Y</option>
-    <option value="N">N</option>
-  </select>
-  <button class="btn" onclick="addMember()">Thêm</button>
-</div>
-<table id="memberTable">
-  <caption style="caption-side:top; text-align:left; padding:8px 0">
-    <button class="btn" type="button" onclick="completeCalculation()">Hoàn thành</button>
-    <button class="btn" type="button" onclick="clearAllData()" style="margin-left:8px">Clear</button>
-  </caption>
-  <tr>
-    <th>Thành viên</th>
-    <th>Giờ chơi</th>
-    <th>Lên sân (Y/N)</th>
-    <th>Tiền sân</th>
-    <th>Tiền cầu</th>
-    <th>Trà đá</th>
-    <th>Khác</th>
-    <th>Phát sinh</th>
-    <th>Tổng</th>
-	<th></th>
-  </tr>
-</table>
-
+<script src="./firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
-const expenses = [];
+const LOCAL_DRAFT_KEY = 'tinhtiencau:data-draft:v3';
+const LOCAL_CACHE_KEY = 'tinhtiencau:data-cache:v3';
+const LOCAL_DEVICE_KEY = 'tinhtiencau:device-id:v1';
 
-let jsonFileHandle = null;
-const DATA_JSON_URL = './data.json';
-const SAVE_ENDPOINT_URL = './save.php';
+const firebaseState = {
+  enabled: false,
+  initialSyncDone: false,
+  isConnected: false,
+  app: null,
+  auth: null,
+  db: null,
+  daysRef: null,
+  user: null,
+  dayVersions: new Map()
+};
 
 let dataStore = { days: [] };
+let activeDayKey = '';
+let isHydrating = false;
+let hasUnsavedChanges = false;
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadDataFromJson();
+  wireTableLiveRecalculation();
+  wireDatePickerEvents();
+  bootstrapLocalState();
+  initializeFirebaseSync();
+});
 
-  // Luôn xổ toàn bộ danh sách (không filter như datalist native)
+function wireDatePickerEvents() {
   calcDate.addEventListener('focus', showDateDropdown);
   calcDate.addEventListener('click', showDateDropdown);
   calcDate.addEventListener('keydown', (e) => {
@@ -122,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (e.key === 'Enter') {
       const selected = normalizeDayKey(calcDate.value);
-      if (selected) loadDayToUI(selected);
+      if (selected) selectDay(selected);
       hideDateDropdown();
     }
   });
@@ -136,55 +351,140 @@ document.addEventListener('DOMContentLoaded', () => {
   calcDate.addEventListener('change', () => {
     const selected = normalizeDayKey(calcDate.value);
     if (!selected) return;
-    loadDayToUI(selected);
+    selectDay(selected);
   });
-});
+}
 
-async function loadDataFromJson() {
+function wireTableLiveRecalculation() {
+  const schedule = () => {
+    if (isHydrating) return;
+    calcExpenses();
+    markDirty();
+  };
+
+  expenseTable.addEventListener('input', schedule);
+  expenseTable.addEventListener('change', schedule);
+  memberTable.addEventListener('input', schedule);
+  memberTable.addEventListener('change', schedule);
+}
+
+function setSaveStatus(message, tone = 'info') {
+  saveStatus.textContent = message;
+  saveStatus.className = `status ${tone === 'success' ? 'success' : tone === 'warning' ? 'warning' : tone === 'error' ? 'error' : ''}`.trim();
+}
+
+function markDirty() {
+  hasUnsavedChanges = true;
+  if (activeDayKey) {
+    const mode = firebaseState.enabled ? 'Firebase' : 'cục bộ';
+    setSaveStatus(`Đang sửa ngày ${activeDayKey}. Chưa lưu lên ${mode}.`, 'warning');
+  }
+}
+
+function hasMeaningfulVisibleData() {
+  return expenseTable.rows.length > 1 || memberTable.rows.length > 1;
+}
+
+function snapshotDraft() {
+  if (!activeDayKey || !hasMeaningfulVisibleData()) return;
   try {
-    const res = await fetch(DATA_JSON_URL, { cache: 'no-store' });
-    if (!res.ok) {
-      // Nếu file chưa tồn tại (404) thì khởi tạo rỗng và cho phép user lưu để tạo lại file.
-      if (res.status === 404) {
-        dataStore = { days: [] };
-        syncDateList();
-
-        const initialDate = pickInitialDate();
-        calcDate.value = initialDate;
-        loadDayToUI(initialDate);
-        return;
-      }
-      throw new Error(`HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    dataStore = normalizeDataStore(data);
-    syncDateList();
-
-    const initialDate = pickInitialDate();
-    calcDate.value = initialDate;
-    loadDayToUI(initialDate);
+    localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({
+      activeDayKey,
+      data: collectDataFromUI()
+    }));
   } catch (err) {
-    // Khi mở bằng file:// thường không fetch được file cục bộ.
-    console.warn('Không load được data.json. Nếu chạy qua Apache/PHP, file sẽ được tạo lại khi bấm Hoàn thành/Clear.', err);
+    console.warn('Không thể lưu bản nháp cục bộ.', err);
+  }
+}
 
-    dataStore = { days: [] };
-    syncDateList();
+function restoreLocalDraftIfNeeded() {
+  try {
+    const raw = localStorage.getItem(LOCAL_DRAFT_KEY);
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (!payload || typeof payload !== 'object') return null;
+    return payload;
+  } catch (err) {
+    console.warn('Không thể đọc bản nháp cục bộ.', err);
+    return null;
+  }
+}
 
-    // Fallback: vẫn set ngày hôm nay để user nhập.
-    const today = normalizeDayKey(new Date().toISOString().slice(0, 10));
-    calcDate.value = today;
+function clearLocalDraft() {
+  try {
+    localStorage.removeItem(LOCAL_DRAFT_KEY);
+  } catch (err) {
+    console.warn('Không thể xóa bản nháp cục bộ.', err);
+  }
+}
+
+function persistLocalCache(store = dataStore) {
+  try {
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(store));
+  } catch (err) {
+    console.warn('Không thể lưu cache cục bộ.', err);
+  }
+}
+
+function restoreLocalCache() {
+  try {
+    const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (!payload || typeof payload !== 'object') return null;
+    return normalizeDataStore(payload);
+  } catch (err) {
+    console.warn('Không thể đọc cache cục bộ.', err);
+    return null;
+  }
+}
+
+function ensureLocalDeviceId() {
+  try {
+    const existing = localStorage.getItem(LOCAL_DEVICE_KEY);
+    if (existing) return existing;
+    const created = `device-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+    localStorage.setItem(LOCAL_DEVICE_KEY, created);
+    return created;
+  } catch (err) {
+    return 'device-unknown';
+  }
+}
+
+function bootstrapLocalState() {
+  const cache = restoreLocalCache();
+  dataStore = cache || { days: [] };
+  syncDateList();
+
+  const draft = restoreLocalDraftIfNeeded();
+  const initialDate = normalizeDayKey(draft?.activeDayKey) || pickInitialDate();
+  calcDate.value = initialDate;
+  loadDayToUI(initialDate, true);
+
+  if (draft?.data) {
+    isHydrating = true;
+    applyDataToUI(draft.data);
+    isHydrating = false;
+    calcExpenses();
+    hasUnsavedChanges = true;
+    setSaveStatus('Đã khôi phục bản nháp cục bộ. Đang chờ kết nối Firebase...', 'warning');
+    return;
+  }
+
+  if (dataStore.days.length) {
+    setSaveStatus(`Đã nạp ${dataStore.days.length} ngày từ cache cục bộ. Đang kết nối Firebase...`, 'warning');
+  } else {
+    setSaveStatus('Đang khởi tạo dữ liệu và kết nối Firebase...', 'warning');
   }
 }
 
 function normalizeDayKey(value) {
   const v = (value || '').toString().trim().replace(/\s+/g, ' ');
   if (!v) return '';
-  // Hard cap to keep JSON reasonable
   return v.length > 100 ? v.slice(0, 100) : v;
 }
 
 function normalizeDataStore(data) {
-  // New format: { days: [ { date, expenses, members } ] }
   if (data && typeof data === 'object' && Array.isArray(data.days)) {
     return {
       days: data.days
@@ -198,7 +498,6 @@ function normalizeDataStore(data) {
     };
   }
 
-  // Old format (backward compatible): { expenses: [...], members: [...] }
   if (data && typeof data === 'object' && (Array.isArray(data.expenses) || Array.isArray(data.members))) {
     const today = normalizeDayKey(new Date().toISOString().slice(0, 10));
     return {
@@ -215,10 +514,45 @@ function normalizeDataStore(data) {
   return { days: [] };
 }
 
+function normalizeRemoteStore(rawDays) {
+  const days = Object.values(rawDays || {})
+    .filter(d => d && typeof d === 'object')
+    .map(d => {
+      const normalized = normalizeDataStore({
+        days: [{
+          date: d.date,
+          expenses: d.expenses,
+          members: d.members
+        }]
+      }).days[0];
+
+      if (!normalized) return null;
+      return {
+        ...normalized,
+        _updatedAt: Number(d.updatedAt || 0)
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a._updatedAt || 0) - (b._updatedAt || 0) || a.date.localeCompare(b.date, 'vi'));
+
+  return {
+    days: days.map(({ _updatedAt, ...rest }) => rest)
+  };
+}
+
+function rememberRemoteVersions(rawDays) {
+  const nextVersions = new Map();
+  Object.values(rawDays || {}).forEach(day => {
+    const date = normalizeDayKey(day?.date);
+    if (!date) return;
+    nextVersions.set(date, Number(day.updatedAt || 0));
+  });
+  firebaseState.dayVersions = nextVersions;
+}
+
 function pickInitialDate() {
   const today = normalizeDayKey(new Date().toISOString().slice(0, 10));
   if (!dataStore.days.length) return today;
-  // keep insertion order; default to the last saved day
   return dataStore.days[dataStore.days.length - 1].date || today;
 }
 
@@ -239,9 +573,8 @@ function renderDateDropdown() {
     btn.type = 'button';
     btn.textContent = d;
     btn.addEventListener('click', () => {
-      calcDate.value = d;
       hideDateDropdown();
-      loadDayToUI(d);
+      selectDay(d);
     });
     dateDropdown.appendChild(btn);
   });
@@ -274,19 +607,51 @@ function ensureDayRecord(date) {
   return rec;
 }
 
-function loadDayToUI(date) {
+function removeDayRecord(date) {
+  const d = normalizeDayKey(date);
+  dataStore.days = (dataStore.days || []).filter(day => day?.date !== d);
+  syncDateList();
+}
+
+function cloneDayRecord(day) {
+  return day ? JSON.parse(JSON.stringify(day)) : null;
+}
+
+function loadDayToUI(date, preserveStatus = false) {
   const d = normalizeDayKey(date);
   if (!d) return;
+  activeDayKey = d;
+  calcDate.value = d;
 
   const rec = getDayRecord(d);
+  isHydrating = true;
   if (!rec) {
-    // New date not in JSON yet: show empty UI
     clearTablesOnly();
     playerCount.value = 0;
+    isHydrating = false;
+    hasUnsavedChanges = false;
+    if (!preserveStatus) {
+      setSaveStatus(`Đang nhập ngày mới: ${d}`, 'warning');
+    }
     return;
   }
 
   applyDataToUI({ expenses: rec.expenses, members: rec.members });
+  isHydrating = false;
+  calcExpenses();
+  hasUnsavedChanges = false;
+  if (!preserveStatus) {
+    setSaveStatus(`Đã mở ngày ${d}`, 'success');
+  }
+}
+
+function selectDay(date) {
+  const next = normalizeDayKey(date);
+  if (!next) return;
+
+  commitCurrentDayToStoreIfNeeded(activeDayKey);
+  calcDate.value = next;
+  loadDayToUI(next);
 }
 
 function normalizeVietnamese(str) {
@@ -317,13 +682,17 @@ function clearTablesOnly() {
 function addExpenseRow(typeKey, price = 0, quantity = 0, total = 0) {
   const row = expenseTable.insertRow();
   row.dataset.type = typeKey;
-  row.innerHTML = `
-    <td>${label(typeKey)}</td>
-    <td><input type="number" value="${Number(price) || 0}" style="width:100%"></td>
-    <td><input type="number" value="${Number(quantity) || 0}" style="width:100%"></td>
-    <td class="total">${Number(total) || 0}</td>
-    <td><button onclick="removeRow(this)">x</button></td>
-  `;
+  const nameCell = row.insertCell();
+  nameCell.textContent = label(typeKey);
+  const priceCell = row.insertCell();
+  priceCell.innerHTML = `<input type="number" value="${Number(price) || 0}" style="width:100%">`;
+  const qtyCell = row.insertCell();
+  qtyCell.innerHTML = `<input type="number" value="${Number(quantity) || 0}" style="width:100%">`;
+  const totalCell = row.insertCell();
+  totalCell.className = 'total';
+  totalCell.textContent = Number(total) || 0;
+  const actionCell = row.insertCell();
+  actionCell.innerHTML = `<button type="button" onclick="removeRow(this)">x</button>`;
 }
 
 function addMemberRow(member) {
@@ -340,18 +709,27 @@ function addMemberRow(member) {
   const sum = Number(computed?.sum ?? 0) || 0;
 
   const row = memberTable.insertRow();
-  row.innerHTML = `
-    <td>${name}</td>
-    <td>${hours}</td>
-    <td>${join}</td>
-    <td class="san">${san}</td>
-    <td class="cau">${cau}</td>
-    <td class="tea">${tea}</td>
-    <td class="other">${other}</td>
-    <td><input type="number" value="${extra}" class="extra"></td>
-    <td class="sum">${sum}</td>
-    <td><button onclick="removeMember(this)">x</button></td>
-  `;
+  row.insertCell().textContent = name;
+  row.insertCell().textContent = hours;
+  row.insertCell().textContent = join;
+  const sanCell = row.insertCell();
+  sanCell.className = 'san';
+  sanCell.textContent = san;
+  const cauCell = row.insertCell();
+  cauCell.className = 'cau';
+  cauCell.textContent = cau;
+  const teaCell = row.insertCell();
+  teaCell.className = 'tea';
+  teaCell.textContent = tea;
+  const otherCell = row.insertCell();
+  otherCell.className = 'other';
+  otherCell.textContent = other;
+  const extraCell = row.insertCell();
+  extraCell.innerHTML = `<input type="number" value="${extra}" class="extra">`;
+  const sumCell = row.insertCell();
+  sumCell.className = 'sum';
+  sumCell.textContent = sum;
+  row.insertCell().innerHTML = `<button type="button" onclick="removeMember(this)">x</button>`;
 }
 
 function applyDataToUI(data) {
@@ -368,7 +746,6 @@ function applyDataToUI(data) {
   });
 
   membersData.forEach(m => addMemberRow(m));
-
   playerCount.value = membersData.length;
 }
 
@@ -424,7 +801,6 @@ function collectDataFromUI() {
       };
     });
 
-  // Giữ đúng cấu trúc file data.json: chỉ có expenses và members
   return {
     expenses: expensesOut,
     members: membersOut
@@ -436,126 +812,14 @@ function collectAndUpsertCurrentDay() {
   if (!selected) throw new Error('Bạn chưa nhập Ngày.');
 
   const rec = ensureDayRecord(selected);
+  calcExpenses();
   const payload = collectDataFromUI();
   rec.expenses = payload.expenses;
   rec.members = payload.members;
-  return { days: dataStore.days };
-}
-
-function downloadJson(data, filename = 'data.json') {
-  const text = JSON.stringify(data, null, '\t');
-  const blob = new Blob([text], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function ensureJsonFileHandle() {
-  if (jsonFileHandle) return jsonFileHandle;
-  if (!window.showSaveFilePicker) return null;
-
-  jsonFileHandle = await window.showSaveFilePicker({
-    suggestedName: 'data.json',
-    types: [
-      {
-        description: 'JSON',
-        accept: { 'application/json': ['.json'] }
-      }
-    ]
-  });
-
-  return jsonFileHandle;
-}
-
-async function persistDataJson(data) {
-  // Ưu tiên ghi lên server (Apache/PHP) nếu có.
-  try {
-    const isHttp = location.protocol === 'http:' || location.protocol === 'https:';
-    if (isHttp) {
-      const res = await fetch(SAVE_ENDPOINT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (res.ok) {
-        const text = await res.text();
-        let payload;
-        try {
-          payload = JSON.parse(text);
-        } catch {
-          throw new Error('save.php không trả JSON hợp lệ (có thể PHP chưa được bật trên server).');
-        }
-
-        if (payload?.ok !== true) throw new Error(payload?.error || 'Save failed');
-        return;
-      }
-    }
-
-    // File System Access API chỉ hoạt động tốt trên https/localhost.
-    const handle = await ensureJsonFileHandle();
-    if (!handle) {
-      downloadJson(data);
-      return;
-    }
-
-    const writable = await handle.createWritable();
-    await writable.write(JSON.stringify(data, null, '\t'));
-    await writable.close();
-  } catch (err) {
-    // Nếu user bấm Cancel hoặc trình duyệt chặn, fallback sang download.
-    console.warn('Không ghi trực tiếp được data.json, fallback download.', err);
-    downloadJson(data);
-  }
-}
-
-async function completeCalculation() {
-  calcExpenses();
-
-  const store = collectAndUpsertCurrentDay();
-  await persistDataJson(store);
-}
-
-async function clearAllData() {
-  const selected = normalizeDayKey(calcDate.value);
-
-  // Clear expense rows (keep header)
-  while (expenseTable.rows.length > 1) {
-    expenseTable.deleteRow(1);
-  }
-
-  // Clear member rows (keep header)
-  while (memberTable.rows.length > 1) {
-    memberTable.deleteRow(1);
-  }
-
-  // Reset inputs / UI
-  newName.value = '';
-  newJoin.value = 'Y';
-  itemType.value = 'San';
-  playerCount.value = 0;
-
-  // Remove the selected day from JSON entirely (keep other days)
-  if (selected) {
-    dataStore.days = (dataStore.days || []).filter(d => d?.date !== selected);
-    syncDateList();
-  }
-
-  await persistDataJson({ days: dataStore.days });
-}
-
-function addExpense() {
-  const type = itemType.value;
-  addExpenseRow(type, 0, 0, 0);
-}
-
-function removeRow(btn) {
-  btn.closest('tr').remove();
+  activeDayKey = selected;
+  snapshotDraft();
+  persistLocalCache();
+  return rec;
 }
 
 function label(t) {
@@ -563,7 +827,7 @@ function label(t) {
 }
 
 function calcExpenses() {
-  let sum = { San:0, Cau:0, Tea:0, Other:0 };
+  const sum = { San: 0, Cau: 0, Tea: 0, Other: 0 };
 
   [...expenseTable.rows].slice(1).forEach(r => {
     const price = +r.cells[1].querySelector('input').value;
@@ -580,6 +844,28 @@ function calcExpenses() {
   updateMembers(sum);
 }
 
+function commitCurrentDayToStoreIfNeeded(sourceDayKey = activeDayKey) {
+  const selected = normalizeDayKey(sourceDayKey);
+  if (!selected || !hasMeaningfulVisibleData()) return;
+  const rec = ensureDayRecord(selected);
+  const payload = collectDataFromUI();
+  rec.expenses = payload.expenses;
+  rec.members = payload.members;
+  snapshotDraft();
+  persistLocalCache();
+}
+
+function addExpense() {
+  addExpenseRow(itemType.value, 0, 0, 0);
+  markDirty();
+}
+
+function removeRow(btn) {
+  btn.closest('tr').remove();
+  calcExpenses();
+  markDirty();
+}
+
 function addMember() {
   const name = newName.value || '---';
   const join = newJoin.value;
@@ -593,22 +879,23 @@ function addMember() {
   });
 
   newName.value = '';
-}
-function removeMember(btn) {
-  btn.closest('tr').remove();
+  calcExpenses();
+  markDirty();
 }
 
-function getSums() {
-  let s = { San:0, Cau:0, Tea:0, Other:0 };
-  [...expenseTable.rows].slice(1).forEach(r => s[r.dataset.type] += +r.querySelector('.total').textContent);
-  return s;
+function removeMember(btn) {
+  btn.closest('tr').remove();
+  calcExpenses();
+  markDirty();
 }
+
 function getPlayerCount() {
-  return memberTable.rows.length - 1; // trừ header
+  return memberTable.rows.length - 1;
 }
+
 function updateMembers(sum) {
   const playerCountValue = getPlayerCount();
-  playerCount.value = playerCountValue; // chỉ cập nhật khi bấm Hoàn thành
+  playerCount.value = playerCountValue;
 
   const playersDenom = playerCountValue || 1;
   const sanEach = sum.San / playersDenom;
@@ -639,6 +926,287 @@ function updateMembers(sum) {
   });
 }
 
+function getFirebaseClientConfig() {
+  const raw = window.TINHTIENCAU_FIREBASE || {};
+  return {
+    enabled: raw.enabled === true,
+    useEmulator: raw.useEmulator === true,
+    databasePath: normalizeFirebasePath(raw.databasePath || 'tinhtiencau'),
+    emulatorHost: raw.emulatorHost || '127.0.0.1',
+    databaseEmulatorPort: Number(raw.databaseEmulatorPort || 9000),
+    authEmulatorUrl: raw.authEmulatorUrl || 'http://127.0.0.1:9099',
+    app: raw.app || {}
+  };
+}
+
+function normalizeFirebasePath(pathValue) {
+  return String(pathValue || 'tinhtiencau').replace(/^\/+|\/+$/g, '') || 'tinhtiencau';
+}
+
+function isFirebaseConfigComplete(config) {
+  const app = config.app || {};
+  return Boolean(
+    app.apiKey &&
+    app.authDomain &&
+    app.databaseURL &&
+    app.projectId &&
+    app.appId
+  );
+}
+
+async function initializeFirebaseSync() {
+  const config = getFirebaseClientConfig();
+  firebaseState.enabled = config.enabled;
+
+  if (!config.enabled) {
+    setSaveStatus('Firebase đang tắt trong firebase-config.js. App dùng lưu cục bộ trên trình duyệt.', 'warning');
+    return;
+  }
+
+  if (!window.firebase?.initializeApp) {
+    firebaseState.enabled = false;
+    setSaveStatus('Không tải được Firebase SDK. App tạm dùng lưu cục bộ.', 'error');
+    return;
+  }
+
+  if (!isFirebaseConfigComplete(config)) {
+    firebaseState.enabled = false;
+    setSaveStatus('firebase-config.js chưa đủ thông tin. App tạm dùng lưu cục bộ.', 'error');
+    return;
+  }
+
+  try {
+    firebaseState.app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config.app);
+    firebaseState.auth = firebase.auth();
+    firebaseState.db = firebase.database();
+
+    if (config.useEmulator && location.hostname === 'localhost') {
+      firebaseState.auth.useEmulator(config.authEmulatorUrl);
+      firebaseState.db.useEmulator(config.emulatorHost, config.databaseEmulatorPort);
+    }
+
+    watchFirebaseConnection();
+    const credential = await firebaseState.auth.signInAnonymously();
+    firebaseState.user = credential.user || firebaseState.auth.currentUser || null;
+    firebaseState.daysRef = firebaseState.db.ref(`${config.databasePath}/days`);
+    subscribeToRemoteDays();
+    setSaveStatus('Đã đăng nhập Firebase, đang đồng bộ dữ liệu...', 'warning');
+  } catch (err) {
+    console.error('Firebase init failed', err);
+    firebaseState.enabled = false;
+    setSaveStatus(describeFirebaseInitError(err), 'error');
+  }
+}
+
+function watchFirebaseConnection() {
+  firebaseState.db.ref('.info/connected').on('value', snapshot => {
+    firebaseState.isConnected = snapshot.val() === true;
+
+    if (!firebaseState.isConnected) {
+      setSaveStatus('Mất kết nối Firebase. App vẫn giữ dữ liệu trong trình duyệt.', 'warning');
+      return;
+    }
+
+    if (firebaseState.initialSyncDone && !hasUnsavedChanges) {
+      setSaveStatus(`Đã kết nối Firebase và đồng bộ ${dataStore.days.length} ngày.`, 'success');
+    }
+  });
+}
+
+function subscribeToRemoteDays() {
+  firebaseState.daysRef.on('value', snapshot => {
+    const rawDays = snapshot.val() || {};
+    rememberRemoteVersions(rawDays);
+    firebaseState.initialSyncDone = true;
+    applyRemoteStore(normalizeRemoteStore(rawDays));
+  }, error => {
+    console.error('Firebase subscribe failed', error);
+    setSaveStatus(describeFirebaseReadError(error), 'error');
+  });
+}
+
+function applyRemoteStore(nextStore) {
+  const currentDay = activeDayKey || normalizeDayKey(calcDate.value);
+  dataStore = nextStore;
+  persistLocalCache(nextStore);
+  syncDateList();
+
+  if (!currentDay) {
+    loadDayToUI(pickInitialDate(), true);
+    setSaveStatus(`Đã đồng bộ ${dataStore.days.length} ngày từ Firebase.`, 'success');
+    return;
+  }
+
+  if (hasUnsavedChanges) {
+    setSaveStatus(`Firebase đã có cập nhật mới. Màn hình đang giữ thay đổi chưa lưu của ngày ${currentDay}.`, 'warning');
+    return;
+  }
+
+  const targetDay = getDayRecord(currentDay) ? currentDay : pickInitialDate();
+  loadDayToUI(targetDay, true);
+  setSaveStatus(`Đã đồng bộ ${dataStore.days.length} ngày từ Firebase.`, 'success');
+}
+
+function encodeDayKey(date) {
+  const normalized = normalizeDayKey(date);
+  if (!normalized) return '';
+  return btoa(unescape(encodeURIComponent(normalized)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function buildRemoteDayPayload(dayRecord) {
+  const normalized = normalizeDataStore({ days: [dayRecord] }).days[0];
+  if (!normalized) throw new Error('INVALID_DAY_DATA');
+  return normalized;
+}
+
+async function writeDayToFirebase(dayRecord) {
+  if (!firebaseState.daysRef) throw new Error('FIREBASE_NOT_READY');
+
+  const normalized = buildRemoteDayPayload(dayRecord);
+  const dayKey = encodeDayKey(normalized.date);
+  const knownVersion = firebaseState.dayVersions.get(normalized.date) || 0;
+  const deviceId = ensureLocalDeviceId();
+
+  const tx = await firebaseState.daysRef.child(dayKey).transaction(current => {
+    const currentVersion = Number(current?.updatedAt || 0);
+    if (knownVersion && currentVersion !== knownVersion) return;
+
+    return {
+      ...normalized,
+      updatedAt: firebase.database.ServerValue.TIMESTAMP,
+      updatedBy: firebaseState.user?.uid || deviceId
+    };
+  }, undefined, false);
+
+  if (!tx.committed) {
+    const conflict = new Error('CONFLICT');
+    conflict.code = 'CONFLICT';
+    throw conflict;
+  }
+}
+
+async function deleteDayFromFirebase(date) {
+  if (!firebaseState.daysRef) throw new Error('FIREBASE_NOT_READY');
+
+  const normalizedDate = normalizeDayKey(date);
+  const dayKey = encodeDayKey(normalizedDate);
+  const knownVersion = firebaseState.dayVersions.get(normalizedDate) || 0;
+
+  const tx = await firebaseState.daysRef.child(dayKey).transaction(current => {
+    const currentVersion = Number(current?.updatedAt || 0);
+    if (knownVersion && currentVersion !== knownVersion) return;
+    return null;
+  }, undefined, false);
+
+  if (!tx.committed && knownVersion) {
+    const conflict = new Error('CONFLICT');
+    conflict.code = 'CONFLICT';
+    throw conflict;
+  }
+}
+
+function canUseRemotePersistence() {
+  return firebaseState.enabled && firebaseState.daysRef && firebaseState.initialSyncDone;
+}
+
+async function completeCalculation() {
+  try {
+    if (firebaseState.enabled && !firebaseState.initialSyncDone) {
+      setSaveStatus('Firebase chưa đồng bộ xong dữ liệu ban đầu. Vui lòng thử lại sau vài giây.', 'warning');
+      return;
+    }
+
+    const dayRecord = collectAndUpsertCurrentDay();
+
+    if (!canUseRemotePersistence()) {
+      hasUnsavedChanges = false;
+      clearLocalDraft();
+      persistLocalCache();
+      setSaveStatus('Đã lưu cục bộ trên trình duyệt. Firebase hiện chưa sẵn sàng.', 'warning');
+      return;
+    }
+
+    setSaveStatus('Đang lưu lên Firebase...', 'warning');
+    await writeDayToFirebase(dayRecord);
+    hasUnsavedChanges = false;
+    clearLocalDraft();
+    persistLocalCache();
+    setSaveStatus('Đã lưu và đồng bộ lên Firebase.', 'success');
+  } catch (err) {
+    console.error('Save failed', err);
+    snapshotDraft();
+    setSaveStatus(describeFirebaseWriteError(err), 'error');
+  }
+}
+
+async function clearAllData() {
+  const selected = normalizeDayKey(calcDate.value);
+  if (!selected) return;
+  const removedRecord = cloneDayRecord(getDayRecord(selected));
+
+  removeDayRecord(selected);
+  clearTablesOnly();
+  newName.value = '';
+  newJoin.value = 'Y';
+  itemType.value = 'San';
+  playerCount.value = 0;
+  activeDayKey = selected;
+  hasUnsavedChanges = false;
+  persistLocalCache();
+  clearLocalDraft();
+
+  try {
+    if (!canUseRemotePersistence()) {
+      setSaveStatus('Đã xóa ngày hiện tại khỏi dữ liệu cục bộ. Firebase hiện chưa sẵn sàng.', 'warning');
+      loadDayToUI(pickInitialDate(), true);
+      return;
+    }
+
+    setSaveStatus(`Đang xóa ngày ${selected} trên Firebase...`, 'warning');
+    await deleteDayFromFirebase(selected);
+    loadDayToUI(pickInitialDate(), true);
+    setSaveStatus(`Đã xóa ngày ${selected} và đồng bộ lên Firebase.`, 'success');
+  } catch (err) {
+    console.error('Delete failed', err);
+    if (removedRecord) {
+      dataStore.days.push(removedRecord);
+      syncDateList();
+    }
+    persistLocalCache();
+    loadDayToUI(selected, true);
+    setSaveStatus(describeFirebaseWriteError(err), 'error');
+  }
+}
+
+function describeFirebaseInitError(err) {
+  if (err?.code === 'auth/admin-restricted-operation') {
+    return 'Firebase chưa bật Anonymous Auth. App tạm dùng lưu cục bộ.';
+  }
+  return 'Không kết nối được Firebase. App tạm dùng lưu cục bộ.';
+}
+
+function describeFirebaseReadError(err) {
+  if (err?.code === 'PERMISSION_DENIED') {
+    return 'Firebase từ chối quyền đọc. Kiểm tra Realtime Database Rules.';
+  }
+  return 'Không đọc được dữ liệu từ Firebase. App giữ lại cache cục bộ.';
+}
+
+function describeFirebaseWriteError(err) {
+  if (err?.code === 'CONFLICT') {
+    return 'Ngày này vừa bị cập nhật từ thiết bị khác. Hãy mở lại ngày, kiểm tra dữ liệu rồi lưu lại.';
+  }
+  if (err?.code === 'PERMISSION_DENIED') {
+    return 'Firebase từ chối quyền ghi. Kiểm tra Realtime Database Rules và Anonymous Auth.';
+  }
+  if (err?.message === 'FIREBASE_NOT_READY') {
+    return 'Firebase chưa sẵn sàng. Dữ liệu đã giữ ở cache cục bộ.';
+  }
+  return 'Lưu lên Firebase thất bại. Bản nháp đã được giữ lại trong trình duyệt.';
+}
 </script>
 
 </body>
