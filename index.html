@@ -220,7 +220,10 @@
       gap: 14px;
     }
     .qr-large-stage {
+      width: min(100%, 900px);
+      aspect-ratio: 1 / 1;
       min-height: 340px;
+      margin: 0 auto;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -235,8 +238,7 @@
     }
     .qr-large-image {
       width: 100%;
-      max-width: 1000px;
-      max-height: 78vh;
+      height: 100%;
       object-fit: contain;
     }
     .qr-empty {
@@ -320,6 +322,7 @@
       .date-wrap input { width: 100%; }
       .host-actions { align-items: stretch; }
       .host-card-head { flex-direction: column; }
+      .header-tools { align-items: stretch; width: 100%; }
     }
   </style>
 </head>
@@ -330,7 +333,10 @@
       <h1>Tính tiền cầu</h1>
       <p>Nhập theo từng ngày, lưu lại an toàn hơn và xem danh sách ngày đã có dữ liệu ngay trong trang.</p>
     </div>
-    <div id="saveStatus" class="status">Đang tải dữ liệu...</div>
+    <div class="header-tools" style="display:flex; flex-direction:column; gap:8px; align-items:flex-end">
+      <div id="saveStatus" class="status">Đang tải dữ liệu...</div>
+      <button class="btn primary" type="button" onclick="captureSectionsOneToThree()">Chụp 1 → 3</button>
+    </div>
   </div>
 
   <div class="grid">
@@ -448,6 +454,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 const LOCAL_DRAFT_KEY = 'tinhtiencau:data-draft:v4';
 const LOCAL_CACHE_KEY = 'tinhtiencau:data-cache:v4';
@@ -1566,6 +1573,91 @@ async function deleteDayFromFirebase(date) {
   }
 }
 
+function syncCloneLiveValues(cloneRoot, liveScoped) {
+  cloneRoot.querySelectorAll('input, select, textarea, img').forEach(cloneEl => {
+    const sourceEl = cloneEl.id ? liveScoped.get(cloneEl.id) : null;
+    if (!sourceEl) return;
+
+    if (cloneEl.tagName === 'IMG') {
+      cloneEl.src = sourceEl.getAttribute('src') || sourceEl.src || '';
+      return;
+    }
+
+    if (cloneEl.type === 'checkbox' || cloneEl.type === 'radio') {
+      cloneEl.checked = sourceEl.checked;
+      return;
+    }
+
+    cloneEl.value = sourceEl.value;
+  });
+}
+
+async function captureSectionsOneToThree() {
+  let captureRoot = null;
+  try {
+    if (typeof html2canvas !== 'function') {
+      throw new Error('CAPTURE_LIB_MISSING');
+    }
+
+    const liveScoped = new Map([...document.querySelectorAll('.grid [id]')].map(el => [el.id, el]));
+    const panels = [...document.querySelectorAll('.grid > section.panel')].slice(1, 4);
+    if (panels.length < 3) {
+      throw new Error('CAPTURE_SOURCE_MISSING');
+    }
+
+    captureRoot = document.createElement('div');
+    const captureWidth = Math.max(320, Math.min(document.documentElement.clientWidth - 40, 1200));
+    captureRoot.style.cssText = `
+      position: fixed;
+      left: -10000px;
+      top: 0;
+      width: ${captureWidth}px;
+      background: #ffffff;
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+      box-sizing: border-box;
+    `;
+
+    panels.forEach(panel => {
+      const clone = panel.cloneNode(true);
+      clone.style.margin = '0';
+      clone.style.width = '100%';
+      captureRoot.appendChild(clone);
+    });
+
+    document.body.appendChild(captureRoot);
+    syncCloneLiveValues(captureRoot, liveScoped);
+
+    setSaveStatus('Đang chụp ảnh từ mục 1 đến mục 3...', 'warning');
+    const canvas = await html2canvas(captureRoot, {
+      backgroundColor: '#ffffff',
+      scale: Math.min(2, window.devicePixelRatio || 1),
+      useCORS: true,
+      logging: false
+    });
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('CAPTURE_BLOB_FAILED');
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.href = url;
+    a.download = `tinhtiencau-1-3-${stamp}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setSaveStatus('Đã tạo ảnh chụp màn hình từ mục 1 đến mục 3.', 'success');
+  } catch (err) {
+    console.error('Screenshot failed', err);
+    setSaveStatus(describeScreenshotError(err), 'error');
+  } finally {
+    captureRoot?.remove();
+  }
+}
+
 function canUseRemotePersistence() {
   return firebaseState.enabled && firebaseState.daysRef && firebaseState.hostsRef && bothRemoteCollectionsReady();
 }
@@ -1839,6 +1931,19 @@ function describeQrUploadError(err) {
     return 'Firebase từ chối quyền ghi QR. Kiểm tra Realtime Database Rules.';
   }
   return 'Lưu ảnh QR thất bại. Dữ liệu ngày hiện tại vẫn được giữ nguyên.';
+}
+
+function describeScreenshotError(err) {
+  if (err?.message === 'CAPTURE_LIB_MISSING') {
+    return 'Không tải được thư viện chụp màn hình.';
+  }
+  if (err?.message === 'CAPTURE_SOURCE_MISSING') {
+    return 'Không tìm thấy đủ mục 1 đến mục 3 để chụp.';
+  }
+  if (err?.message === 'CAPTURE_BLOB_FAILED') {
+    return 'Không tạo được file ảnh chụp màn hình.';
+  }
+  return 'Chụp màn hình thất bại.';
 }
 </script>
 
