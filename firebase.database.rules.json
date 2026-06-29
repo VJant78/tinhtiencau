@@ -5,7 +5,12 @@
       ".write": "auth != null",
       "days": {
         "$dayId": {
-          ".validate": "newData.val() === null || (newData.hasChildren(['date', 'expenses', 'members']) && newData.child('date').isString() && newData.child('date').val().length > 0 && newData.child('date').val().length <= 100)"
+          ".validate": "newData.val() === null || (newData.hasChildren(['date', 'expenses', 'members']) && newData.child('date').isString() && newData.child('date').val().length > 0 && newData.child('date').val().length <= 100 && (!newData.child('hostId').exists() || newData.child('hostId').isString()) && (!newData.child('hostName').exists() || (newData.child('hostName').isString() && newData.child('hostName').val().length <= 60)))"
+        }
+      },
+      "hosts": {
+        "$hostId": {
+          ".validate": "newData.val() === null || (newData.hasChildren(['id', 'name', 'nameKey']) && newData.child('id').isString() && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 60 && newData.child('nameKey').isString() && newData.child('nameKey').val().length > 0 && (!newData.child('qrDataUrl').exists() || (newData.child('qrDataUrl').isString() && newData.child('qrDataUrl').val().matches('^data:image/') && newData.child('qrDataUrl').val().length < 250000)) && (!newData.child('qrMimeType').exists() || newData.child('qrMimeType').isString()))"
         }
       }
     }
